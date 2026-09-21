@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WorkBuddy Token 消耗看板 · 本地扫描版</title>
+<meta name="description" content="在浏览器内直接扫描本机 WorkBuddy 会话日志（.jsonl），统计各模型 Token 用量、缓存命中、会话与工作空间分布。全程本地解析，日志不出本机。">
+<meta name="keywords" content="WorkBuddy, Token, 消耗看板, 用量统计, 缓存命中, jsonl, 本地扫描">
+<meta name="robots" content="index,follow">
+<meta name="theme-color" content="#fafaf9">
+<link rel="canonical" href="https://token.npuai.cn/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="WorkBuddy Token 消耗看板 · 本地扫描版">
+<meta property="og:description" content="浏览器内直接扫描本机日志，统计 Token 用量与缓存命中，数据不出本机。">
+<meta property="og:url" content="https://token.npuai.cn/">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#fafaf9;--card:#fff;--border:#e8e5df;--border2:#e4e1da;--t1:#1f2328;--t2:#6f6c64;
+  --t3:#9a978f;--empty:#f4f2ed;--hover:#fbfaf7;--selbg:#e9f0f7;--selfg:#3f6b99;--selbd:#aec9e0;
+  --blue:#4e7fbc;--tipbg:#1f2328;--tiptc:#fff;--row:#f2f0ea;
+}
+body.dark{
+  --bg:#191a1c;--card:#212225;--border:#2e3033;--border2:#35383c;--t1:#e8e6e3;--t2:#a5a29b;
+  --t3:#75726b;--empty:#2a2c2f;--hover:#26282b;--selbg:#25313d;--selfg:#8ab4d8;--selbd:#3b556e;
+  --blue:#6b9ed0;--tipbg:#e8e6e3;--tiptc:#191a1c;--row:#2a2c2f;
+}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  background:var(--bg);color:var(--t1);padding:22px 18px 60px;line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px;margin:0 auto}
+h1{font-size:21px;font-weight:600;letter-spacing:-.2px}
+.sub{font-size:12.5px;color:var(--t3);margin-top:4px}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+.tbtn{border:1px solid var(--border2);background:var(--card);color:var(--t2);font-size:12px;
+  padding:5px 12px;border-radius:7px;cursor:pointer;transition:.15s}
+.tbtn:hover{background:var(--hover);color:var(--t1)}
+.tbtn:disabled{opacity:.45;cursor:not-allowed}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:11px;padding:16px 18px;margin-bottom:14px}
+.card h2{font-size:13.5px;font-weight:600;color:var(--t1);margin-bottom:3px}
+.card .note{font-size:11.5px;color:var(--t3);margin-bottom:12px}
+
+/* 引入页 */
+.intro{max-width:600px;margin:56px auto;text-align:center}
+.intro .badge{display:inline-block;font-size:11.5px;color:var(--selfg);background:var(--selbg);
+  border:1px solid var(--selbd);border-radius:999px;padding:3px 11px;margin-bottom:16px}
+.intro h1{font-size:23px;margin-bottom:10px}
+.intro p{font-size:13px;color:var(--t2);margin-bottom:8px}
+.intro .privacy{font-size:12px;color:var(--t3);background:var(--card);border:1px solid var(--border);
+  border-radius:9px;padding:11px 14px;margin:18px 0;text-align:left;line-height:1.7}
+.pathbox{background:var(--empty);border:1px solid var(--border);border-radius:8px;padding:9px 12px;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;
+  display:flex;align-items:center;justify-content:space-between;gap:10px;margin:14px 0 6px}
+.pathbox code{color:var(--t1);word-break:break-all}
+.big{display:block;width:100%;padding:13px;font-size:14px;font-weight:600;border:none;border-radius:9px;
+  background:var(--blue);color:#fff;cursor:pointer;transition:.15s;margin-top:16px}
+.big:hover{opacity:.9}
+.big:disabled{opacity:.5;cursor:progress}
+.hint{font-size:11.5px;color:var(--t3);margin-top:10px;line-height:1.7;text-align:left}
+.status{font-size:12.5px;color:var(--t2);margin-top:14px;min-height:20px}
+.err{color:#d64545}
+
+/* KPI */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(152px,1fr));gap:10px;margin-bottom:14px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:13px 14px;min-width:0}
+.kpi .k{font-size:11px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi .v{font-size:19px;font-weight:600;margin-top:3px;letter-spacing:-.3px;word-break:break-all}
+.kpi .d{font-size:10.5px;color:var(--t4);color:var(--t3);margin-top:2px}
+.kpi.accent .v{color:var(--selfg)}
+
+/* 时间窗 */
+.winbar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.pill{border:1px solid var(--border2);background:var(--card);color:var(--t2);font-size:12px;
+  padding:5px 13px;border-radius:7px;cursor:pointer;transition:.15s}
+.pill:hover{background:var(--hover)}
+.pill.on{background:var(--selbg);color:var(--selfg);border-color:var(--selbd);font-weight:600}
+
+/* 条形排行 */
+.rank{display:flex;flex-direction:column;gap:9px}
+.rrow{display:grid;grid-template-columns:minmax(96px,1.25fr) 3fr minmax(74px,auto);gap:11px;align-items:center}
+.rrow .nm{font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--t1)}
+.rrow .bar{height:8px;background:var(--empty);border-radius:4px;overflow:hidden}
+.rrow .bar i{display:block;height:100%;border-radius:4px;background:var(--blue);transition:width .3s}
+.rrow .vl{font-size:11.5px;color:var(--t2);text-align:right;white-space:nowrap;
+  font-variant-numeric:tabular-nums}
+
+/* 柱状图 */
+.chart{width:100%;overflow-x:auto}
+.chart svg{display:block}
+
+.mcols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+table.rt{width:100%;border-collapse:collapse;font-size:12px}
+table.rt th{text-align:right;color:var(--t3);font-weight:600;padding:6px 7px;border-bottom:1px solid var(--border);
+  position:sticky;top:0;background:var(--card);white-space:nowrap}
+table.rt th:first-child{text-align:left}
+table.rt td{padding:6px 7px;border-bottom:1px solid var(--row);text-align:right;
+  font-variant-numeric:tabular-nums;color:var(--t2);white-space:nowrap}
+table.rt td:first-child{text-align:left;color:var(--t1);max-width:260px;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+table.rt tr:hover td{background:var(--hover)}
+
+.foot{text-align:center;font-size:11.5px;color:var(--t3);margin-top:26px;line-height:1.9}
+.foot a{color:var(--selfg);text-decoration:none}
+.foot a:hover{text-decoration:underline}
+#visitorStat{font-size:11.5px;color:var(--t3)}
+[hidden]{display:none !important}
+@media(max-width:600px){
+  body{padding:16px 12px 40px}
+  h1{font-size:18px}
+  .rrow{grid-template-columns:minmax(80px,1fr) 2fr minmax(62px,auto);gap:8px}
+  .kpi .v{font-size:16px}
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <!-- ========== 引入页 ========== -->
+  <section id="intro" class="intro">
+    <div class="badge">本地扫描 · 零上传</div>
+    <h1>WorkBuddy Token 消耗看板</h1>
+    <p>选择本机的 WorkBuddy 日志目录，即可在浏览器内直接扫描并查看你的 Token 消耗。</p>
+
+    <div class="privacy">
+      <strong>你的日志不会被上传。</strong><br>
+      所有解析与计算都只在你当前的浏览器里完成，页面不向任何服务器发送日志内容，
+      也不请求任何后端接口。页面本身是纯静态文件，你可以断网后继续使用。
+    </div>
+
+    <div class="pathbox">
+      <code id="defPath">~/.workbuddy/projects</code>
+      <button class="tbtn" id="copyPathBtn" type="button">复制路径</button>
+    </div>
+
+    <div class="hint" id="osHint"></div>
+
+    <button class="big" id="scanBtn" type="button">选择日志目录</button>
+    <input type="file" id="dirInput" webkitdirectory directory multiple hidden>
+    <div class="status" id="scanStatus"></div>
+    <div class="hint" style="text-align:center;margin-top:16px">
+      推荐 Chrome / Edge。若浏览器不支持目录选择，会自动改用「选择文件夹」文件框。
+    </div>
+  </section>
+
+  <!-- ========== 看板 ========== -->
+  <section id="dash" hidden>
+    <div class="topbar">
+      <div>
+        <h1>Token 消耗看板</h1>
+        <div class="sub" id="genLine"></div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="tbtn" id="rescanBtn" type="button">重新扫描</button>
+        <button class="tbtn" id="reselectBtn" type="button">重选目录</button>
+        <button class="tbtn" id="themeBtn" type="button">深浅色</button>
+      </div>
+    </div>
+
+    <div class="winbar" id="winbar">
+      <button class="pill" data-days="1" type="button">近 1 天</button>
+      <button class="pill" data-days="3" type="button">近 3 天</button>
+      <button class="pill" data-days="7" type="button">近 7 天</button>
+      <button class="pill on" data-days="30" type="button">近 30 天</button>
+      <button class="pill" data-days="0" type="button">全部</button>
+    </div>
+
+    <div class="kpis" id="kpis"></div>
+
+    <div class="card">
+      <h2>模型用量排行</h2>
+      <div class="note" id="rankNote">按 Token 总量排序，随上方时间窗联动</div>
+      <div class="rank" id="modelRank"></div>
+    </div>
+
+    <div class="card">
+      <h2>每日用量</h2>
+      <div class="note">x = 日期（最新在右）· y = 当日 Token 总量 · 悬浮查看明细</div>
+      <div class="chart" id="dailyChart"></div>
+    </div>
+
+    <div class="mcols">
+      <div class="card">
+        <h2>工作空间分布</h2>
+        <div class="note">按 Token 总量排序（最多显示前 10）</div>
+        <div class="rank" id="wsRank"></div>
+      </div>
+      <div class="card">
+        <h2>用量最集中的会话</h2>
+        <div class="note">按 Token 总量排序（最多显示前 10）</div>
+        <div style="max-height:340px;overflow:auto">
+          <table class="rt" id="sessTable">
+            <thead><tr><th>会话</th><th>Token</th><th>轮次</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="foot">
+      <div id="visitorStat" hidden>累计访问 <span id="visitorCount">–</span> 台设备</div>
+      <div>数据来源：本机会话日志 <code>~/.workbuddy/projects</code> · 全部在浏览器本地解析，不上传任何内容</div>
+      <div>解析口径与 <a href="https://github.com/majiabin2020/workbuddy-token-dashboard" target="_blank" rel="noopener">token-dashboard</a> 保持一致</div>
+    </div>
+  </section>
+
+</div>
+
+<script src="/app.js"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = function (s) { return document.querySelector(s); };
+
+  var RAW = null;      /* 扫描到的原始文件 [{segments,text}] */
+  var D = null;        /* 聚合后的数据 */
+  var days = 30;
+
+  /* ---------- 主题 ---------- */
+  try {
+    if (localStorage.getItem('td-theme') === 'dark' ||
+        (!localStorage.getItem('td-theme') && matchMedia('(prefers-color-scheme:dark)').matches)) {
+      document.body.classList.add('dark');
+    }
+  } catch (e) {}
+  $('#themeBtn').onclick = function () {
+    document.body.classList.toggle('dark');
+    try { localStorage.setItem('td-theme', document.body.classList.contains('dark') ? 'dark' : 'light'); } catch (e) {}
+    if (D) render();
+  };
+
+  /* ---------- 目录选择 ---------- */
+  var isWin = /Win/i.test(navigator.userAgent || '');
+  $('#defPath').textContent = isWin ? '%USERPROFILE%\\.workbuddy\\projects' : '~/.workbuddy/projects';
+  $('#osHint').innerHTML = isWin
+    ? '显示隐藏目录：打开资源管理器 → <b>查看</b> → 勾选「<b>隐藏的项目</b>」，或在地址栏直接粘贴上面的路径。<br>若不确定路径，先在 WorkBuddy 里随便跑一次对话，日志目录会自动生成。'
+    : '显示隐藏目录：在访达或选择框内按 <b>⌘ ⇧ .</b>；或按 <b>⌘ ⇧ G</b> 后粘贴上面的路径。<br>若不确定路径，先在 WorkBuddy 里随便跑一次对话，日志目录会自动生成。';
+
+  async function copyPath() {
+    var t = $('#defPath').textContent, b = $('#copyPathBtn');
+    try { await navigator.clipboard.writeText(t); b.textContent = '已复制'; }
+    catch (e) {
+      try {
+        var r = document.createRange(); r.selectNodeContents($('#defPath'));
+        var s = getSelection(); s.removeAllRanges(); s.addRange(r);
+        document.execCommand('copy'); b.textContent = '已复制';
+      } catch (e2) { b.textContent = '请手动复制'; }
+    }
+    setTimeout(function () { b.textContent = '复制路径'; }, 1600);
+  }
+  $('#copyPathBtn').onclick = copyPath;
+
+  /* ---------- 收集文件 ---------- */
+  function setStatus(msg, isErr) {
+    var el = $('#scanStatus');
+    el.textContent = msg || '';
+    el.className = 'status' + (isErr ? ' err' : '');
+  }
+
+  async function walk(handle, path, out) {
+    for await (var entry of handle.entries()) {
+      var p = path.concat(entry[0]), e = entry[1];
+      if (e.kind === 'directory') await walk(e, p, out);
+      else if (/\.jsonl$/i.test(entry[0])) out.push({ segments: p, entry: e });
+    }
+  }
+
+  async function readAll(picked) {
+    var arr = [];
+    for (var i = 0; i < picked.length; i++) {
+      var f = picked[i], text;
+      try { text = await (f.entry ? (await f.entry.getFile()).text() : f.file.text()); }
+      catch (e) { continue; }
+      arr.push({ segments: f.segments, text: text });
+      if (i % 15 === 0) setStatus('正在读取 ' + (i + 1) + '/' + picked.length + ' 个日志文件…');
+      await new Promise(function (r) { setTimeout(r, 0); });
+    }
+    return arr;
+  }
+
+  async function ingest(files) {
+    var btn = $('#scanBtn');
+    if (!files.length) { setStatus('未找到 .jsonl 日志文件，请确认选中的是 WorkBuddy 日志目录。', true); btn.disabled = false; return; }
+    btn.disabled = true;
+    setStatus('正在读取 ' + files.length + ' 个日志文件…');
+    /* 先让状态渲染出来，再开始同步解析 */
+    await new Promise(function (r) { setTimeout(r, 30); });
+    RAW = await readAll(files);
+    setStatus('正在聚合…');
+    await new Promise(function (r) { setTimeout(r, 30); });
+    try {
+      D = TD.buildData(RAW, function (i, n) { if (i % 40 === 0) setStatus('正在聚合 ' + i + '/' + n + '…'); });
+    } catch (e) {
+      setStatus('解析出错：' + (e && e.message ? e.message : e), true);
+      btn.disabled = false;
+      return;
+    }
+    if (!D.sess.length) {
+      setStatus('日志里没有找到 usage 记录。可能所选目录不是 WorkBuddy 日志目录。', true);
+      btn.disabled = false;
+      return;
+    }
+    setStatus('');
+    $('#intro').style.display = 'none';
+    $('#dash').hidden = false;
+    document.body.classList.add('in-dash');
+    window.scrollTo(0, 0);
+    render();
+  }
+
+  /* 记住上次目录（IndexedDB 存 handle，只能同源同浏览器恢复） */
+  function idbOpen() {
+    return new Promise(function (res, rej) {
+      try {
+        var r = indexedDB.open('td-dir', 1);
+        r.onupgradeneeded = function () { try { r.result.createObjectStore('h'); } catch (e) {} };
+        r.onsuccess = function () { res(r.result); };
+        r.onerror = function () { rej(r.error); };
+      } catch (e) { rej(e); }
+    });
+  }
+  async function idbGet() {
+    try {
+      var db = await idbOpen();
+      return await new Promise(function (res) {
+        var t = db.transaction('h', 'readonly').objectStore('h').get('last');
+        t.onsuccess = function () { res(t.result || null); };
+        t.onerror = function () { res(null); };
+      });
+    } catch (e) { return null; }
+  }
+  async function idbSet(h) {
+    try {
+      var db = await idbOpen();
+      return await new Promise(function (res) {
+        var t = db.transaction('h', 'readwrite');
+        t.objectStore('h').put(h, 'last');
+        t.oncomplete = function () { res(true); };
+        t.onerror = function () { res(false); };
+      });
+    } catch (e) { return false; }
+  }
+
+  $('#scanBtn').onclick = async function () {
+    var btn = $('#scanBtn');
+    try {
+      if (window.showDirectoryPicker) {
+        var opts = {};
+        var h = await idbGet();
+        if (h) opts.startIn = h;
+        var dir;
+        try { dir = await window.showDirectoryPicker(opts); }
+        catch (e) {
+          if (e && (e.name === 'TypeError' || e.name === 'SecurityError')) dir = await window.showDirectoryPicker();
+          else throw e;
+        }
+        setStatus('正在遍历目录…');
+        var out = [];
+        await walk(dir, [], out);
+        try { await idbSet(dir); } catch (e) {}
+        await ingest(out);
+      } else {
+        $('#dirInput').click();
+      }
+    } catch (e) {
+      if (e && e.name !== 'AbortError') setStatus('扫描出错：' + (e && e.message ? e.message : e), true);
+      btn.disabled = false;
+    }
+  };
+
+  $('#dirInput').onchange = async function (ev) {
+    var fl = ev.target.files;
+    if (!fl || !fl.length) return;
+    var out = [];
+    for (var i = 0; i < fl.length; i++) {
+      var f = fl[i];
+      var rp = f.webkitRelativePath || f.name;
+      /* 去掉第一段（根目录名），与目录选择保持一致 */
+      out.push({ segments: rp.split('/').slice(1), file: f });
+    }
+    await ingest(out);
+  };
+
+  /* 重新扫描：复用上次目录 handle，无需再授权选择 */
+  $('#rescanBtn').onclick = async function () {
+    var btn = $('#rescanBtn');
+    btn.disabled = true;
+    try {
+      var h = await idbGet();
+      if (h && h.entries) {
+        var perm = h.queryPermission ? await h.queryPermission({ mode: 'read' }) : 'granted';
+        if (perm !== 'granted' && h.requestPermission) perm = await h.requestPermission({ mode: 'read' });
+        if (perm === 'granted') {
+          var out = [];
+          await walk(h, [], out);
+          if (out.length) { await ingest(out); btn.disabled = false; return; }
+        }
+      }
+      /* 无 handle 或无权限 → 让用户重新选 */
+      setStatus('需要重新选择日志目录。');
+      $('#intro').style.display = '';
+      $('#dash').hidden = true;
+      $('#scanBtn').disabled = false;
+    } catch (e) {
+      setStatus('重新扫描失败：' + (e && e.message ? e.message : e), true);
+    }
+    btn.disabled = false;
+  };
+
+  $('#reselectBtn').onclick = function () {
+    $('#intro').style.display = '';
+    $('#dash').hidden = true;
+    setStatus('');
+    $('#scanBtn').disabled = false;
+    window.scrollTo(0, 0);
+  };
+
+  /* ---------- 时间窗 ---------- */
+  $('#winbar').onclick = function (ev) {
+    var b = ev.target.closest('.pill');
+    if (!b || !D) return;
+    Array.prototype.forEach.call($('#winbar').children, function (x) { x.classList.remove('on'); });
+    b.classList.add('on');
+    days = parseInt(b.dataset.days, 10);
+    render();
+  };
+
+  /* ---------- 渲染 ---------- */
+  function windowRange() {
+    var to = Date.now();
+    var from;
+    if (days === 0) {
+      /* 全部：从最早一条请求开始 */
+      var min = Infinity;
+      for (var i = 0; i < D.sess.length; i++) {
+        var r = D.sess[i].r;
+        if (r.length && r[0][0] < min) min = r[0][0];
+      }
+      from = isFinite(min) ? Math.max(min * 60000 - 60000, 0) : to - 30 * 86400000;
+    } else {
+      /* 对齐到当天 0 点，与「近 N 天」直觉一致 */
+      var d0 = new Date(to);
+      d0.setHours(0, 0, 0, 0);
+      from = d0.getTime() - (days - 1) * 86400000;
+    }
+    return { from: from, to: to };
+  }
+
+  function render() {
+    var rg = windowRange();
+    var A = TD.aggregate(D, rg.from, rg.to);
+    var spanDays = days === 0 ? Math.max(1, Math.round((rg.to - rg.from) / 86400000)) : days;
+    var K = TD.deriveKpis(A, spanDays);
+    var memb = TD.MEMB_FALLBACK;
+
+    $('#genLine').textContent =
+      '扫描于 ' + D.gen + ' · ' + D.sess.length + ' 个会话 · ' +
+      D.models.length + ' 个模型 · ' + D.ws.length + ' 个工作空间';
+
+    /* --- KPI --- */
+    var hitRate = K.cacheHitRate;
+    /* 缓存命中省下的钱：命中价按输入价的 1/10 估算（各家实际在 0.05~0.2 之间） */
+    var savedTok = A.ch * 0.9;
+    var apiPrice = TD.PRICE_FALLBACK['deepseek-v4.1-flash'] || [1.37, 3.67, 0.2];
+    var savedYuan = savedTok / 1e6 * apiPrice[0];
+
+    var items = [
+      ['合计 Token', TD.fmtShort(K.tt), TD.fmt(K.tt), ''],
+      ['请求轮次', TD.fmt(K.req), '会话 ' + TD.fmt(K.sess) + ' 个', ''],
+      ['输入 / 输出', '1 : ' + (K.ioRatio ? K.ioRatio.toFixed(1) : '0'), TD.fmtShort(K.it) + ' / ' + TD.fmtShort(K.ot), ''],
+      ['缓存命中率', (hitRate * 100).toFixed(1) + '%', '省下约 ¥' + savedYuan.toFixed(1), 'accent'],
+      ['官方实际积分', K.credit ? TD.fmt(K.credit) : '—',
+        K.creditYuan ? '≈ ¥' + K.creditYuan.toFixed(2) + '（按 ¥' + memb.yr + '/积分）' : '日志未含 credit 字段', 'accent'],
+      ['日均 Token', TD.fmtShort(K.perDay), '窗口 ' + spanDays + ' 天', '']
+    ];
+    $('#kpis').innerHTML = items.map(function (it) {
+      return '<div class="kpi ' + it[3] + '"><div class="k">' + it[0] + '</div>' +
+        '<div class="v">' + it[1] + '</div><div class="d">' + it[2] + '</div></div>';
+    }).join('');
+
+    /* --- 模型排行 --- */
+    var mrows = [];
+    for (var i = 0; i < D.models.length; i++) {
+      if (A.mTot[i] > 0) mrows.push({ nm: D.models[i], v: A.mTot[i], cr: A.mCredit[i], rq: A.mReq[i] });
+    }
+    mrows.sort(function (a, b) { return b.v - a.v; });
+    var mTop = mrows.slice(0, 12);
+    var mMax = mTop.length ? mTop[0].v : 1;
+    $('#modelRank').innerHTML = mTop.length ? mTop.map(function (r) {
+      var wp = Math.max(1.5, r.v / mMax * 100);
+      return '<div class="rrow" title="' + r.nm + ' · ' + TD.fmt(r.v) + ' token · ' + TD.fmt(r.rq) + ' 次请求' +
+        (r.cr ? ' · ' + r.cr.toFixed(1) + ' 积分' : '') + '">' +
+        '<span class="nm">' + esc(r.nm) + '</span>' +
+        '<span class="bar"><i style="width:' + wp.toFixed(1) + '%"></i></span>' +
+        '<span class="vl">' + TD.fmtShort(r.v) + '</span></div>';
+    }).join('') : '<div class="note">该时间窗内没有数据</div>';
+
+    var crRows = mrows.filter(function (r) { return r.cr > 0; })
+      .sort(function (a, b) { return b.cr - a.cr; }).slice(0, 3);
+    $('#rankNote').textContent = crRows.length
+      ? '按 Token 总量排序 · 积分 TOP3：' + crRows.map(function (r) {
+          return r.nm + ' ' + r.cr.toFixed(0);
+        }).join(' / ')
+      : '按 Token 总量排序，随上方时间窗联动';
+
+    /* --- 每日柱状图 --- */
+    drawDaily(A);
+
+    /* --- 工作空间 --- */
+    var wrows = [];
+    for (var j = 0; j < D.ws.length; j++) {
+      if (A.wTot[j] > 0) wrows.push({ nm: D.ws[j], v: A.wTot[j], s: A.wSess[j] });
+    }
+    wrows.sort(function (a, b) { return b.v - a.v; });
+    var wTop = wrows.slice(0, 10);
+    var wMax = wTop.length ? wTop[0].v : 1;
+    $('#wsRank').innerHTML = wTop.length ? wTop.map(function (r) {
+      var wp = Math.max(1.5, r.v / wMax * 100);
+      return '<div class="rrow" title="' + r.nm + ' · ' + TD.fmt(r.v) + ' token · ' + r.s + ' 个会话">' +
+        '<span class="nm">' + esc(r.nm) + '</span>' +
+        '<span class="bar"><i style="width:' + wp.toFixed(1) + '%"></i></span>' +
+        '<span class="vl">' + TD.fmtShort(r.v) + '</span></div>';
+    }).join('') : '<div class="note">该时间窗内没有数据</div>';
+
+    /* --- 会话表 --- */
+    var srows = A.sessions.map(function (s) {
+      var t = 0, n = 0;
+      for (var k = 0; k < s.r.length; k++) {
+        var m = s.r[k][0];
+        if (m * 60000 < rg.from || m * 60000 > rg.to) continue;
+        t += s.r[k][2]; n++;
+      }
+      return { nm: s.t, v: t, n: n };
+    }).filter(function (r) { return r.v > 0; });
+    srows.sort(function (a, b) { return b.v - a.v; });
+    $('#sessTable').querySelector('tbody').innerHTML = srows.slice(0, 10).map(function (r) {
+      return '<tr><td title="' + esc(r.nm) + '">' + esc(r.nm) + '</td><td>' +
+        TD.fmt(r.v) + '</td><td>' + r.n + '</td></tr>';
+    }).join('') || '<tr><td colspan="3" style="text-align:center;color:var(--t3)">无数据</td></tr>';
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  /* 每日堆叠柱状图（原生 SVG，不用外部图表库） */
+  function drawDaily(A) {
+    var keys = Object.keys(A.daily).sort();
+    var el = $('#dailyChart');
+    if (!keys.length) { el.innerHTML = '<div class="note">该时间窗内没有数据</div>'; return; }
+
+    /* 窗口内最多展示 60 天，超出则按周合并 */
+    var MAXBARS = 62;
+    var bars = [];
+    if (keys.length <= MAXBARS) {
+      bars = keys.map(function (k) { return { label: k.slice(5), v: A.daily[k].tt, req: A.daily[k].req }; });
+    } else {
+      var step = Math.ceil(keys.length / MAXBARS);
+      for (var i = 0; i < keys.length; i += step) {
+        var chunk = keys.slice(i, i + step), tt = 0, rq = 0;
+        chunk.forEach(function (k) { tt += A.daily[k].tt; rq += A.daily[k].req; });
+        bars.push({ label: chunk[0].slice(5), v: tt, req: rq });
+      }
+    }
+
+    var W = Math.max(el.clientWidth || 900, 640), H = 210;
+    var padL = 54, padR = 12, padT = 14, padB = 30;
+    var iw = W - padL - padR, ih = H - padT - padB;
+    var maxV = Math.max.apply(null, bars.map(function (b) { return b.v; })) || 1;
+    var bw = iw / bars.length;
+    var barW = Math.max(1.5, Math.min(bw * 0.72, 26));
+
+    var parts = [];
+    parts.push('<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '">');
+    /* y 轴网格 */
+    for (var g = 0; g <= 4; g++) {
+      var y = padT + ih - ih * (g / 4);
+      parts.push('<line x1="' + padL + '" y1="' + y.toFixed(1) + '" x2="' + (padL + iw) + '" y2="' + y.toFixed(1) +
+        '" stroke="var(--border)" stroke-width="0.5"/>');
+      parts.push('<text x="' + (padL - 7) + '" y="' + (y + 3.5).toFixed(1) + '" text-anchor="end" font-size="10" fill="var(--t3)">' +
+        TD.fmtShort(maxV * g / 4) + '</text>');
+    }
+    /* 柱 */
+    bars.forEach(function (b, i) {
+      var h = maxV ? ih * (b.v / maxV) : 0;
+      var x = padL + i * bw + (bw - barW) / 2;
+      var y = padT + ih - h;
+      parts.push('<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + barW.toFixed(1) +
+        '" height="' + Math.max(h, 0.6).toFixed(1) + '" rx="2" fill="var(--blue)">' +
+        '<title>' + b.label + ' · ' + TD.fmt(b.v) + ' token · ' + TD.fmt(b.req) + ' 次请求</title></rect>');
+    });
+    /* x 轴标签：最多 8 个 */
+    var skip = Math.max(1, Math.ceil(bars.length / 8));
+    bars.forEach(function (b, i) {
+      if (i % skip !== 0) return;
+      var x = padL + i * bw + bw / 2;
+      parts.push('<text x="' + x.toFixed(1) + '" y="' + (padT + ih + 16) + '" text-anchor="middle" font-size="10" fill="var(--t3)">' +
+        b.label + '</text>');
+    });
+    parts.push('</svg>');
+    el.innerHTML = parts.join('');
+  }
+
+  window.addEventListener('resize', function () {
+    if (D) { clearTimeout(window._rz); window._rz = setTimeout(function () { drawDaily(TD.aggregate(D, windowRange().from, windowRange().to)); }, 200); }
+  });
+
+  /* ---------- 访问统计（仅线上生效，失败静默，不传任何日志内容） ---------- */
+  function deviceId() {
+    var KEY = 'td-device', id = '';
+    try { id = localStorage.getItem(KEY) || ''; } catch (e) { return ''; }
+    if (!/^[a-z0-9]{8,40}$/.test(id)) {
+      var rnd;
+      try { rnd = crypto.getRandomValues(new Uint8Array(12)); }
+      catch (e) { rnd = new Uint8Array(12); for (var i = 0; i < 12; i++) rnd[i] = Math.random() * 256 | 0; }
+      id = Array.from(rnd, function (b) { return b.toString(36).padStart(2, '0'); }).join('').slice(0, 24);
+      try { localStorage.setItem(KEY, id); } catch (e) {}
+    }
+    return id;
+  }
+  async function reportVisit() {
+    if (!/^https?:$/.test(location.protocol)) return;
+    if (navigator.webdriver) return;
+    if (/bot|crawler|spider|headless|preview|phantom/i.test(navigator.userAgent || '')) return;
+    if (/[?#&]notrack/.test(location.href)) return;
+    var did = deviceId();
+    if (!did) return;
+    try {
+      var res = await fetch('/api/visit?did=' + encodeURIComponent(did), { cache: 'no-store' });
+      if (!res.ok) return;
+      var j = await res.json();
+      if (j && typeof j.count === 'number' && j.count >= 0) {
+        $('#visitorCount').textContent = j.count.toLocaleString('zh-CN');
+        $('#visitorStat').hidden = false;
+      }
+    } catch (e) { /* 静默 */ }
+  }
+  reportVisit();
+})();
+</script>
+</body>
+</html>

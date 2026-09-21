@@ -1,0 +1,28 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "workbuddy-token-web",
+	"main": "src/worker.js",
+	"compatibility_date": "2026-09-01",
+	"workers_dev": true,
+	"assets": {
+		"directory": "./public",
+		"binding": "ASSETS",
+		"not_found_handling": "404-page",
+		"html_handling": "auto-trailing-slash"
+	},
+	"kv_namespaces": [
+		{
+			"binding": "TOKEN_VISITS",
+			"id": "1292f611edb54ca8aba98610b332244d"
+		}
+	],
+	"routes": [
+		{
+			"pattern": "token.npuai.cn",
+			"custom_domain": true
+		}
+	],
+	"observability": {
+		"enabled": true
+	}
+}
