@@ -33,24 +33,33 @@ function json(obj, status) {
   return new Response(JSON.stringify(obj), { status: status || 200, headers: CORS });
 }
 
-/* 安全响应头（与 public/_headers 一致，Worker 侧再兜一层） */
+/* 安全响应头（与 public/_headers 保持一致；Worker 侧下发可确保不被覆盖）
+ *
+ * CSP 里最要紧的两条：
+ *   script-src-elem 'self' 'unsafe-inline' —— 脚本只允许同源，beacon.min.js 请求在发出前即被判定违规
+ *   connect-src 'self'                     —— 即使脚本侥幸落地，也发不出信标
+ */
 const SECURITY_HEADERS = {
   'content-security-policy': [
     "default-src 'none'",
     "script-src 'self' 'unsafe-inline'",
+    "script-src-elem 'self' 'unsafe-inline'",
     "style-src 'self' 'unsafe-inline'",
+    "style-src-elem 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
     "font-src 'self' data:",
     "connect-src 'self'",
     "base-uri 'none'",
     "form-action 'none'",
     "frame-ancestors 'none'",
-    "object-src 'none'"
+    "object-src 'none'",
+    "upgrade-insecure-requests"
   ].join('; '),
   'x-content-type-options': 'nosniff',
   'referrer-policy': 'no-referrer',
   'permissions-policy': 'geolocation=(), microphone=(), camera=(), payment=(), usb=(), serial=(), hid=()',
   'cross-origin-opener-policy': 'same-origin',
+  'cross-origin-resource-policy': 'same-origin',
   'x-frame-options': 'DENY'
 };
 

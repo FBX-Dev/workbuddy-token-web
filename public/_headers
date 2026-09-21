@@ -1,7 +1,27 @@
 /*
-  Content-Security-Policy: default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'
+ *  Content-Security-Policy: 硬性阻断第三方外发，保护「数据不出本机」承诺
+ *
+ *  为什么需要它：Cloudflare 会在 HTML 响应末尾自动注入 Web Analytics（RUM）脚本，
+ *  向 static.cloudflareinsights.com 拉取 beacon.min.js 再回传 /cdn-cgi/rum。
+ *  该注入发生在比 Worker 更靠外的边缘层（Worker 从 ASSETS 读到的响应里没有它），
+ *  所以无法靠字符串剥离干净——必须由浏览器侧策略拦截。
+ *
+ *  关键点：script-src-elem 精确到「允许哪些主机提供脚本」，
+ *  让 beacon.min.js 的请求在发出前就被判定为违规（不产生网络请求），
+ *  比单纯的 script-src 拦截更彻底。connect-src 'self' 是第二重保险：
+ *  即使脚本侥幸落地，也发不出信标。
+ *
+ *  注：style-src 需要 'unsafe-inline'（页面有内联 <style> 与 style= 属性），
+ *  script-src 需要 'unsafe-inline'（页脚内联统计上报脚本）。
+ *  本站无任何第三方脚本/字体/图片依赖（全部同源），因此白名单只列 'self'。
+ */
+/*
+  Content-Security-Policy: default-src 'none'; script-src 'self' 'unsafe-inline'; script-src-elem 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; style-src-elem 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'; upgrade-insecure-requests
   X-Content-Type-Options: nosniff
   Referrer-Policy: no-referrer
   Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=(), usb=(), serial=(), hid=()
   Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Resource-Policy: same-origin
   X-Frame-Options: DENY
+  X-Robots-Tag: index, follow
+  Cache-Control: public, max-age=0, must-revalidate
