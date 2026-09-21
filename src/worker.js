@@ -116,7 +116,11 @@ export default {
         const seen = await env.TOKEN_VISITS.get(key);
         let total;
         if (seen) {
-          total = parseInt(seen, 10) || 0;
+          /* 老设备：直接回全局总数
+           * 注意 dev:<did> 存的是"已登记"标记（值为 '1'），
+           * 不能用 parseInt(seen) 当总数——那样每次复访都会返回 1。 */
+          const cur = await env.TOKEN_VISITS.get('total');
+          total = parseInt(cur, 10) || 0;
         } else {
           await env.TOKEN_VISITS.put(key, '1', { expirationTtl: 60 * 60 * 24 * 365 * 3 });
           const cur = await env.TOKEN_VISITS.get('total');
