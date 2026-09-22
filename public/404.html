@@ -7,21 +7,46 @@
 <meta name="robots" content="noindex">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <style>
+  /* 配色与首页 index.html 的 token 变量保持一致（浅色为默认，深色跟随系统） */
   :root{
-    --bg:#f7f8fa; --card:#fff; --border:#e6e8ee;
-    --t1:#1b1f2a; --t2:#4a5265; --t3:#8b93a7; --link:#2f6fed;
+    --bg:#fafaf9; --card:#fff; --border:#e8e5df;
+    --t1:#1f2328; --t2:#6f6c64; --t3:#9a978f; --hover:#fbfaf7;
+    --selbg:#e9f0f7; --selfg:#3f6b99; --selbd:#aec9e0;
+    --navbg:rgba(250,250,249,.9); --bnav:#1c243a; --bcyan:#00c4d1;
   }
   @media (prefers-color-scheme: dark){
-    :root{ --bg:#14171f; --card:#1c202a; --border:#2b3140;
-           --t1:#eef1f7; --t2:#b3bacb; --t3:#7d8699; --link:#6f9bff; }
+    :root{ --bg:#191a1c; --card:#212225; --border:#2e3033;
+           --t1:#e8e6e3; --t2:#a5a29b; --t3:#75726b; --hover:#26282b;
+           --selbg:#25313d; --selfg:#8ab4d8; --selbd:#3b556e;
+           --navbg:rgba(25,26,28,.9); --bnav:#e8e6e3; --bcyan:#22d3e0; }
   }
   *{box-sizing:border-box}
   body{
-    margin:0; background:var(--bg); color:var(--t1); min-height:100vh;
-    display:flex; align-items:center; justify-content:center; padding:24px;
+    margin:0; background:var(--bg); color:var(--t1);
     font:14px/1.7 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",
          "Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased;
   }
+
+  /* ===== 顶部导航：与首页一致，随时可回主站 ===== */
+  .topnav{position:sticky;top:0;z-index:60;padding:0 18px;background:var(--navbg);
+    -webkit-backdrop-filter:saturate(180%) blur(12px);
+    backdrop-filter:saturate(180%) blur(12px);border-bottom:1px solid var(--border)}
+  .navin{max-width:1180px;margin:0 auto;display:flex;align-items:center;
+    gap:12px;min-height:52px;flex-wrap:wrap;padding:6px 0}
+  .brand{display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--t1);
+    font-weight:600;font-size:13.5px;letter-spacing:-.1px;white-space:nowrap}
+  .brand .mark{display:block;flex:none;color:var(--bnav)}
+  .brand .bsub{font-size:11.5px;font-weight:400;color:var(--t3)}
+  .navlinks{display:flex;align-items:center;gap:2px;margin-left:auto;flex-wrap:wrap}
+  .navlinks a{font-size:12.5px;color:var(--t2);text-decoration:none;padding:5px 10px;
+    border-radius:6px;transition:.15s;white-space:nowrap}
+  .navlinks a:hover{background:var(--hover);color:var(--t1)}
+  .navlinks a.cta{color:var(--selfg);background:var(--selbg);border:1px solid var(--selbd);
+    font-weight:500;margin-left:6px;padding:5px 11px}
+  .navlinks a.cta:hover{background:var(--selbd)}
+
+  .center{display:flex;align-items:center;justify-content:center;padding:56px 24px 64px}
   .box{
     max-width:440px; width:100%; background:var(--card); border:1px solid var(--border);
     border-radius:12px; padding:32px 28px; text-align:center;
@@ -33,26 +58,67 @@
   .hint{ font-size:12.5px; color:var(--t3); margin-top:14px; line-height:1.65 }
   a.btn{
     display:inline-block; margin-top:20px; padding:9px 20px; border-radius:8px;
-    background:var(--link); color:#fff; text-decoration:none; font-size:13.5px;
+    background:#4e7fbc; color:#fff; text-decoration:none; font-size:13.5px;
   }
   a.btn:hover{ filter:brightness(1.06) }
+  .alt{ margin-top:14px; font-size:12.5px; color:var(--t2) }
+  .alt a{ color:var(--selfg); text-decoration:none }
+  .alt a:hover{ text-decoration:underline }
   code{
     background:var(--bg); border:1px solid var(--border); border-radius:4px;
     padding:1px 5px; font-size:12px; font-family:ui-monospace,Consolas,monospace;
   }
+  @media(max-width:680px){
+    .brand .bsub{display:none}
+    .navlinks a{padding:5px 8px;font-size:12px}
+  }
 </style>
 </head>
 <body>
+
+<header class="topnav">
+  <div class="navin">
+    <a class="brand" href="https://www.npuai.cn/" title="前往 NPU AI 主站">
+      <svg class="mark" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+        <g fill="currentColor">
+          <rect x="6" y="1.7" width="1.8" height="2.9" rx=".9"/>
+          <rect x="10.1" y="1.7" width="1.8" height="2.9" rx=".9"/>
+          <rect x="14.2" y="1.7" width="1.8" height="2.9" rx=".9"/>
+          <rect x="6" y="19.4" width="1.8" height="2.9" rx=".9"/>
+          <rect x="10.1" y="19.4" width="1.8" height="2.9" rx=".9"/>
+          <rect x="14.2" y="19.4" width="1.8" height="2.9" rx=".9"/>
+        </g>
+        <rect x="3.4" y="3.6" width="17.2" height="16.8" rx="4.2" fill="currentColor"/>
+        <rect x="7.6" y="7.8" width="8.8" height="8.4" rx="2.2" style="fill:var(--bcyan)"/>
+      </svg>
+      <span>NPU AI</span>
+      <span class="bsub">算力 · 芯片 · 大模型</span>
+    </a>
+    <nav class="navlinks" aria-label="NPU AI 主站导航">
+      <a href="https://www.npuai.cn/">首页</a>
+      <a href="https://www.npuai.cn/archive/">归档</a>
+      <a href="https://www.npuai.cn/about/">关于</a>
+      <a class="cta" href="https://www.npuai.cn/">回主站 →</a>
+    </nav>
+  </div>
+</header>
+
+<div class="center">
   <div class="box">
     <div class="code">404</div>
     <h1>这个页面不存在</h1>
     <p>看板是单页应用，所有功能都在首页。</p>
     <a class="btn" href="/">回到看板首页</a>
+    <div class="alt">
+      想了解 AI 算力 / 芯片 / 大模型的产业动态？去
+      <a href="https://www.npuai.cn/">NPU AI 主站</a>
+    </div>
     <div class="hint">
-      想查自己的用量？回到首页后点「选择日志目录」，选中本机的<br>
+      想查自己的 Token 用量？回到首页后点「选择日志目录」，选中本机的<br>
       <code>%USERPROFILE%\.workbuddy\projects</code><br>
       日志只在你的浏览器里解析，不会上传。
     </div>
   </div>
+</div>
 </body>
 </html>

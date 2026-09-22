@@ -4,12 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>WorkBuddy Token 消耗看板 · 本地扫描版</title>
-<meta name="description" content="在浏览器内直接扫描本机 WorkBuddy 会话日志（.jsonl），统计各模型 Token 用量、缓存命中、会话与工作空间分布。全程本地解析，日志不出本机。">
-<meta name="keywords" content="WorkBuddy, Token, 消耗看板, 用量统计, 缓存命中, jsonl, 本地扫描">
+<meta name="description" content="在浏览器内直接扫描本机 WorkBuddy 会话日志（.jsonl），统计各模型 Token 用量、缓存命中、会话与工作空间分布。全程本地解析，日志不出本机。NPU AI 主站的工具子站。">
+<meta name="keywords" content="WorkBuddy, Token, 消耗看板, 用量统计, 缓存命中, jsonl, 本地扫描, NPU AI, 算力, 芯片, 大模型">
 <meta name="robots" content="index,follow">
 <meta name="theme-color" content="#fafaf9">
 <link rel="canonical" href="https://token.npuai.cn/">
+<link rel="author" href="https://www.npuai.cn/about/">
+<link rel="alternate" type="application/rss+xml" title="NPU AI 主站 · RSS" href="https://www.npuai.cn/rss.xml">
 <meta property="og:type" content="website">
+<meta property="og:site_name" content="NPU AI">
 <meta property="og:title" content="WorkBuddy Token 消耗看板 · 本地扫描版">
 <meta property="og:description" content="浏览器内直接扫描本机日志，统计 Token 用量与缓存命中，数据不出本机。">
 <meta property="og:url" content="https://token.npuai.cn/">
@@ -20,11 +23,13 @@
   --bg:#fafaf9;--card:#fff;--border:#e8e5df;--border2:#e4e1da;--t1:#1f2328;--t2:#6f6c64;
   --t3:#9a978f;--empty:#f4f2ed;--hover:#fbfaf7;--selbg:#e9f0f7;--selfg:#3f6b99;--selbd:#aec9e0;
   --blue:#4e7fbc;--tipbg:#1f2328;--tiptc:#fff;--row:#f2f0ea;
+  --navbg:rgba(250,250,249,.9);--bnav:#1c243a;--bcyan:#00c4d1;
 }
 body.dark{
   --bg:#191a1c;--card:#212225;--border:#2e3033;--border2:#35383c;--t1:#e8e6e3;--t2:#a5a29b;
   --t3:#75726b;--empty:#2a2c2f;--hover:#26282b;--selbg:#25313d;--selfg:#8ab4d8;--selbd:#3b556e;
   --blue:#6b9ed0;--tipbg:#e8e6e3;--tiptc:#191a1c;--row:#2a2c2f;
+  --navbg:rgba(25,26,28,.9);--bnav:#e8e6e3;--bcyan:#22d3e0;
 }
 body{
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
@@ -69,7 +74,7 @@ h1{font-size:21px;font-weight:600;letter-spacing:-.2px}
 .kpi{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:13px 14px;min-width:0}
 .kpi .k{font-size:11px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .kpi .v{font-size:19px;font-weight:600;margin-top:3px;letter-spacing:-.3px;word-break:break-all}
-.kpi .d{font-size:10.5px;color:var(--t4);color:var(--t3);margin-top:2px}
+.kpi .d{font-size:10.5px;color:var(--t3);margin-top:2px}
 .kpi.accent .v{color:var(--selfg)}
 
 /* 时间窗 */
@@ -106,6 +111,44 @@ table.rt tr:hover td{background:var(--hover)}
 .foot{text-align:center;font-size:11.5px;color:var(--t3);margin-top:26px;line-height:1.9}
 .foot a{color:var(--selfg);text-decoration:none}
 .foot a:hover{text-decoration:underline}
+
+/* ===== 顶部导航：引导回主站 www.npuai.cn =====
+   说明：本站是 NPU AI 的子站（只做本机 Token 统计），导航栏常驻吸顶，
+   任何时刻都能一键回到主站看算力 / 芯片 / 大模型的产业分析。
+   品牌标用内联 SVG 而非主站图片——页面 CSP 是 img-src 'self'，
+   引用跨域图片会被浏览器拦掉；内联还能保证零外部请求。 */
+.topnav{position:sticky;top:0;z-index:60;margin:-22px -18px 20px;padding:0 18px;
+  background:var(--navbg);-webkit-backdrop-filter:saturate(180%) blur(12px);
+  backdrop-filter:saturate(180%) blur(12px);border-bottom:1px solid var(--border)}
+.navin{max-width:1180px;margin:0 auto;display:flex;align-items:center;
+  gap:12px;min-height:52px;flex-wrap:wrap;padding:6px 0}
+.brand{display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--t1);
+  font-weight:600;font-size:13.5px;letter-spacing:-.1px;white-space:nowrap}
+.brand .mark{display:block;flex:none;color:var(--bnav)}
+.brand:hover{color:var(--blue)}
+.brand .bsub{font-size:11.5px;font-weight:400;color:var(--t3);letter-spacing:0}
+.navlinks{display:flex;align-items:center;gap:2px;margin-left:auto;flex-wrap:wrap}
+.navlinks a{font-size:12.5px;color:var(--t2);text-decoration:none;padding:5px 10px;
+  border-radius:6px;transition:.15s;white-space:nowrap}
+.navlinks a:hover{background:var(--hover);color:var(--t1)}
+.navlinks a.cta{color:var(--selfg);background:var(--selbg);border:1px solid var(--selbd);
+  font-weight:500;margin-left:6px;padding:5px 11px}
+.navlinks a.cta:hover{background:var(--selbd);color:var(--selfg)}
+
+/* 引入页底部的跨站引导卡 */
+.crosslink{max-width:600px;margin:26px auto 0;background:var(--card);border:1px solid var(--border);
+  border-radius:9px;padding:14px 16px;text-align:left}
+.crosslink .ct{font-size:12.5px;font-weight:600;color:var(--t1);margin-bottom:4px}
+.crosslink .cd{font-size:12px;color:var(--t2);line-height:1.7}
+.crosslink .cl{display:inline-block;margin-top:10px;font-size:12.5px;color:var(--selfg);
+  text-decoration:none;font-weight:500}
+.crosslink .cl:hover{text-decoration:underline}
+
+@media(max-width:680px){
+  .brand .bsub{display:none}
+  .navlinks a{padding:5px 8px;font-size:12px}
+  .navlinks a.cta{margin-left:2px}
+}
 #visitorStat{font-size:11.5px;color:var(--t3)}
 [hidden]{display:none !important}
 @media(max-width:600px){
@@ -117,6 +160,37 @@ table.rt tr:hover td{background:var(--hover)}
 </style>
 </head>
 <body>
+
+<!-- ========== 顶部导航：引导回 NPU AI 主站 ========== -->
+<header class="topnav">
+  <div class="navin">
+    <a class="brand" href="https://www.npuai.cn/" title="前往 NPU AI 主站">
+      <!-- 内联品牌标：navy 芯片体 + 青色核心，暗色下外框跟随文字色 -->
+      <svg class="mark" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+        <g fill="currentColor">
+          <rect x="6" y="1.7" width="1.8" height="2.9" rx=".9"/>
+          <rect x="10.1" y="1.7" width="1.8" height="2.9" rx=".9"/>
+          <rect x="14.2" y="1.7" width="1.8" height="2.9" rx=".9"/>
+          <rect x="6" y="19.4" width="1.8" height="2.9" rx=".9"/>
+          <rect x="10.1" y="19.4" width="1.8" height="2.9" rx=".9"/>
+          <rect x="14.2" y="19.4" width="1.8" height="2.9" rx=".9"/>
+        </g>
+        <rect x="3.4" y="3.6" width="17.2" height="16.8" rx="4.2" fill="currentColor"/>
+        <!-- 注意：SVG 的 fill 属性是 presentation attribute，不解析 var()，
+             要用 style 写成 CSS 声明才生效 -->
+        <rect x="7.6" y="7.8" width="8.8" height="8.4" rx="2.2" style="fill:var(--bcyan)"/>
+      </svg>
+      <span>NPU AI</span>
+      <span class="bsub">算力 · 芯片 · 大模型</span>
+    </a>
+    <nav class="navlinks" aria-label="NPU AI 主站导航">
+      <a href="https://www.npuai.cn/">首页</a>
+      <a href="https://www.npuai.cn/archive/">归档</a>
+      <a href="https://www.npuai.cn/about/">关于</a>
+      <a class="cta" href="https://www.npuai.cn/">回主站 →</a>
+    </nav>
+  </div>
+</header>
 
 <div class="wrap">
 
@@ -144,6 +218,17 @@ table.rt tr:hover td{background:var(--hover)}
     <div class="status" id="scanStatus"></div>
     <div class="hint" style="text-align:center;margin-top:16px">
       推荐 Chrome / Edge。若浏览器不支持目录选择，会自动改用「选择文件夹」文件框。
+    </div>
+
+    <!-- 跨站引导：本站是工具子站，行业内容在主站 -->
+    <div class="crosslink">
+      <div class="ct">这是 NPU AI 的工具子站</div>
+      <div class="cd">
+        本站只做一件事：在你自己的浏览器里统计 WorkBuddy 的 Token 消耗。
+        如果你关心的是 AI 行业本身——算力与芯片格局、HBM 与存储周期、先进封装、端侧与液冷、
+        光互联等产业动向，这些都在主站。
+      </div>
+      <a class="cl" href="https://www.npuai.cn/">前往 NPU AI 主站看产业观察 →</a>
     </div>
   </section>
 
@@ -204,6 +289,7 @@ table.rt tr:hover td{background:var(--hover)}
     <div class="foot">
       <div id="visitorStat" hidden>累计访问 <span id="visitorCount">–</span> 台设备</div>
       <div>数据来源：本机会话日志 <code>~/.workbuddy/projects</code> · 全部在浏览器本地解析，不上传任何内容</div>
+      <div>本站是 <a href="https://www.npuai.cn/">NPU AI</a> 的子站 · 主站涵盖算力 / 芯片 / 大模型的产业分析</div>
       <div>解析口径与 <a href="https://github.com/majiabin2020/workbuddy-token-dashboard" target="_blank" rel="noopener">token-dashboard</a> 保持一致</div>
     </div>
   </section>
@@ -582,8 +668,8 @@ table.rt tr:hover td{background:var(--hover)}
     for (var g = 0; g <= 4; g++) {
       var y = padT + ih - ih * (g / 4);
       parts.push('<line x1="' + padL + '" y1="' + y.toFixed(1) + '" x2="' + (padL + iw) + '" y2="' + y.toFixed(1) +
-        '" stroke="var(--border)" stroke-width="0.5"/>');
-      parts.push('<text x="' + (padL - 7) + '" y="' + (y + 3.5).toFixed(1) + '" text-anchor="end" font-size="10" fill="var(--t3)">' +
+        '" style="stroke:var(--border);stroke-width:.5"/>');
+      parts.push('<text x="' + (padL - 7) + '" y="' + (y + 3.5).toFixed(1) + '" text-anchor="end" font-size="10" style="fill:var(--t3)">' +
         TD.fmtShort(maxV * g / 4) + '</text>');
     }
     /* 柱 */
@@ -592,7 +678,7 @@ table.rt tr:hover td{background:var(--hover)}
       var x = padL + i * bw + (bw - barW) / 2;
       var y = padT + ih - h;
       parts.push('<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + barW.toFixed(1) +
-        '" height="' + Math.max(h, 0.6).toFixed(1) + '" rx="2" fill="var(--blue)">' +
+        '" height="' + Math.max(h, 0.6).toFixed(1) + '" rx="2" style="fill:var(--blue)">' +
         '<title>' + b.label + ' · ' + TD.fmt(b.v) + ' token · ' + TD.fmt(b.req) + ' 次请求</title></rect>');
     });
     /* x 轴标签：最多 8 个 */
@@ -600,7 +686,7 @@ table.rt tr:hover td{background:var(--hover)}
     bars.forEach(function (b, i) {
       if (i % skip !== 0) return;
       var x = padL + i * bw + bw / 2;
-      parts.push('<text x="' + x.toFixed(1) + '" y="' + (padT + ih + 16) + '" text-anchor="middle" font-size="10" fill="var(--t3)">' +
+      parts.push('<text x="' + x.toFixed(1) + '" y="' + (padT + ih + 16) + '" text-anchor="middle" font-size="10" style="fill:var(--t3)">' +
         b.label + '</text>');
     });
     parts.push('</svg>');
